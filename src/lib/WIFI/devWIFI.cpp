@@ -19,6 +19,12 @@
 #include <ESPAsyncWebServer.h>
 #include <WebSocketsServer.h>
 
+#include <ESPAsyncTCP.h>
+#include "CRSF.h"
+#include "msp.h"
+#include "msptypes.h"
+extern CRSF crsf;
+
 #include "common.h"
 #include "POWERMGNT.h"
 #include "hwTimer.h"
@@ -65,6 +71,10 @@ AsyncWebSocket ws("/ws"); // access at ws://[esp ip]/ws
 AsyncEventSource events("/events"); // event source (Server-Sent events)
 static bool servicesStarted = false;
 static bool wsConnected = false;
+
+static std::vector<AsyncClient*> clients; // a list to hold all clients for MSP to WIFI bridge
+#define MSP_WIFI_PORT 5761  //Port number
+#define SERVER_HOST_NAME "elrs_msp"
 
 static bool target_seen = false;
 static uint8_t target_pos = 0;
@@ -489,6 +499,70 @@ static void wifiOff()
   #endif
 }
 
+ /* clients events */
+static void handleError(void* arg, AsyncClient* client, int8_t error) {
+	Serial.printf("\n connection error %s from client %s \n", client->errorToString(error), client->remoteIP().toString().c_str());
+}
+
+static void handleData(void* arg, AsyncClient* client, void *data, size_t len) {
+	Serial.printf("\n data received from client %s \n", client->remoteIP().toString().c_str());
+	Serial.write((uint8_t*)data, len);
+
+    // Ask the CRSF class to send the encapsulated packet to the stream
+  // mspPacket_t MSPpacket;
+  // MSPpacket.reset();
+  
+  // for (size_t i = 0; i < len; i++) {
+  //    //MSPpacket.addByte(data[i]);
+  // }
+
+  // crsf.AddMspMessage(&MSPpacket);
+
+  crsf.sendMSPFrameToFC(data);
+
+  delay(50);
+
+
+  uint8_t* data_ret;
+  uint8_t len_ret;
+  crsf.GetMspMessage(&data, &len);
+
+  for (size_t i = 0; i < len_ret; i++)
+  {
+    Serial.write(data_ret[i]);
+  }
+
+	// reply to client
+	// if (client->space() > 32 && client->canSend()) {
+	// 	char reply[32];
+	// 	sprintf(reply, "this is from %s", SERVER_HOST_NAME);
+	// 	client->add(reply, strlen(reply));
+	// 	client->send();
+	// }
+}
+
+static void handleDisconnect(void* arg, AsyncClient* client) {
+	Serial.printf("\n client %s disconnected \n", client->remoteIP().toString().c_str());
+}
+
+static void handleTimeOut(void* arg, AsyncClient* client, uint32_t time) {
+	Serial.printf("\n client ACK timeout ip: %s \n", client->remoteIP().toString().c_str());
+}
+
+/* server events */
+static void handleNewClient(void* arg, AsyncClient* client) {
+	Serial.printf("\n new client has been connected to server, ip: %s", client->remoteIP().toString().c_str());
+
+	// add to list
+	clients.push_back(client);
+	
+	// register events
+	client->onData(&handleData, NULL);
+	client->onError(&handleError, NULL);
+	client->onDisconnect(&handleDisconnect, NULL);
+	client->onTimeout(&handleTimeOut, NULL);
+}
+
 static void startWiFi(unsigned long now)
 {
   if (wifiStarted) {
@@ -529,6 +603,12 @@ static void startWiFi(unsigned long now)
   }
   laststatus = WL_DISCONNECTED;
   wifiStarted = true;
+
+  //WIFIMSP.begin(); // begin WIFI to MSP interface
+  
+  AsyncServer* WifiToMspServer = new AsyncServer(MSP_WIFI_PORT);
+  WifiToMspServer->onClient(&handleNewClient, WifiToMspServer);
+	WifiToMspServer->begin();
 }
 
 static void startMDNS()
