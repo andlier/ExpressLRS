@@ -1,4 +1,5 @@
 #include "CRSF.h"
+#include "CRSF2MSP.h"
 #include "FIFO.h"
 #include "telemetry_protocol.h"
 #include "logging.h"
@@ -941,4 +942,12 @@ void CRSF::SetExtendedHeaderAndCrc(uint8_t *frame, uint8_t frameType, uint8_t fr
     uint8_t crc = crsf_crc.calc(&frame[CRSF_FRAME_NOT_COUNTED_BYTES], header->frame_size - 1, 0);
 
     frame[header->frame_size + CRSF_FRAME_NOT_COUNTED_BYTES - 1] = crc;
+}
+
+void CRSF::MSPdebug(uint8_t *data, uint8_t len)
+{
+#ifdef DEBUG_CRSF_NO_OUTPUT
+    return;
+#endif
+    this->_dev->write(data, len);
 }

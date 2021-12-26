@@ -46,12 +46,12 @@ private:
 
 public:
     FIFO();
-    ~FIFO();
-    void ICACHE_RAM_ATTR push(const uint8_t data);
-    void ICACHE_RAM_ATTR pushBytes(const uint8_t *data, int len);
-    uint8_t ICACHE_RAM_ATTR pop();
-    void ICACHE_RAM_ATTR popBytes(uint8_t *data, int len);
-    uint8_t ICACHE_RAM_ATTR peek();
-    uint16_t ICACHE_RAM_ATTR size();
-    void ICACHE_RAM_ATTR flush();
+    void push(const uint8_t data);
+    void pushBytes(const uint8_t *data, int len);
+    void pushBuffer(const uint8_t *data, int len);
+    uint8_t pop();
+    void popBytes(uint8_t *data, int len);
+    uint8_t peek();
+    uint16_t size();
+    void flush();
 };

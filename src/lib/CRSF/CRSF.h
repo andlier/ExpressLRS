@@ -113,6 +113,7 @@ public:
     void ICACHE_RAM_ATTR sendRCFrameToFC();
     void ICACHE_RAM_ATTR sendMSPFrameToFC(uint8_t* data);
     void sendLinkStatisticsToFC();
+    void MSPdebug(uint8_t *data, uint8_t len);
     #endif
 
 

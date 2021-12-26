@@ -37,10 +37,6 @@ FIFO::FIFO()
     numElements = 0;
 }
 
-FIFO::~FIFO()
-{
-}
-
 void ICACHE_RAM_ATTR FIFO::push(const uint8_t data)
 {
     if (numElements == FIFO_SIZE)
