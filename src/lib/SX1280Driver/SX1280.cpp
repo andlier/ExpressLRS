@@ -364,6 +364,14 @@ bool ICACHE_RAM_ATTR SX1280Driver::GetFrequencyErrorbool()
     return 0;
 }
 
+void ICACHE_RAM_ATTR SX1280Driver::GetRssiInst()
+{
+    uint8_t status[2];
+
+    hal.ReadCommand(SX1280_RADIO_GET_RSSIINST, status, 2);
+    InstRSSI = -(int8_t)(status[0] / 2);
+}
+
 void ICACHE_RAM_ATTR SX1280Driver::GetLastPacketStats()
 {
     uint8_t status[2];

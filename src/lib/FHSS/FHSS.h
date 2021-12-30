@@ -32,6 +32,7 @@
 #define FreqCorrectionMin ((int32_t)(-100000/FREQ_STEP))
 
 #define FREQ_HZ_TO_REG_VAL(freq) ((uint32_t)((double)freq/(double)FREQ_STEP))
+#define FREQ_REG_TO_HZ_VAL(reg) ((uint32_t)((uint32_t)reg*(double)FREQ_STEP)/1000000)
 
 extern volatile uint8_t FHSSptr;
 extern int32_t FreqCorrection;

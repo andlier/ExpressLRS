@@ -95,7 +95,7 @@ StubbornSender MspSender(ELRS_MSP_MAX_PACKAGES);
 uint8_t CRSFinBuffer[CRSF_MAX_PACKET_LEN+1];
 
 device_affinity_t ui_devices[] = {
-  {&CRSF_device, 0},
+  //{&CRSF_device, 0},
 #ifdef HAS_LED
   {&LED_device, 1},
 #endif
@@ -143,6 +143,10 @@ static int32_t dynamic_power_rssi_sum;
 static int32_t dynamic_power_rssi_n;
 static int32_t dynamic_power_avg_lq;
 static bool dynamic_power_updated;
+
+// test variables
+uint32_t last_step_time;
+
 
 #ifdef TARGET_TX_GHOST
 extern "C"
@@ -1013,8 +1017,10 @@ void setup()
   }
 
   devicesStart();
-}
 
+  Radio.SetMode(SX1280_MODE_RX);
+}
+char hashstring[256];
 void loop()
 {
   uint32_t now = millis();
@@ -1028,11 +1034,11 @@ void loop()
 
   if (connectionState < MODE_STATES)
   {
-    UpdateConnectDisconnectStatus();
+    //UpdateConnectDisconnectStatus();
   }
 
   // Update UI devices
-  devicesUpdate(now);
+  //devicesUpdate(now);
 
   #if defined(PLATFORM_ESP8266) || defined(PLATFORM_ESP32)
     // If the reboot time is set and the current time is past the reboot time then reboot.
@@ -1040,6 +1046,46 @@ void loop()
       ESP.restart();
     }
   #endif
+
+  if ((now - last_step_time) > 300)
+  {
+    DBGLN("sx1280 mode: %x, bw: %x, SF: %x, CR: %x, RssiInst: %d", Radio.currOpmode, Radio.currBW, Radio.currSF, Radio.currCR, Radio.InstRSSI);
+
+    last_step_time = now;
+    int8_t table_len = (int8_t) FHSSgetChannelCount()/4;
+    int8_t rssi_results[table_len][20];
+    uint32_t freq_scan[table_len];
+    int8_t random_freq_index[] = {15, 14, 5, 6, 2, 17, 12, 7, 13, 18, 9, 3, 4, 1, 8, 16, 11, 19, 10, 0};
+    int i;
+    for(i = 0;i<table_len;i++)
+    {
+      Radio.SetFrequencyReg(FHSSfreqs[random_freq_index[i]*4]);
+      int sample;
+      for(sample = 0;sample<20;sample++)
+      {
+        Radio.GetRssiInst();
+        rssi_results[random_freq_index[i]][sample] = Radio.InstRSSI;
+      }
+      freq_scan[random_freq_index[i]] = FREQ_REG_TO_HZ_VAL(Radio.currFreq);
+      
+    }
+    DBGLN("\f");
+    
+    for(i = 0;i<table_len;i++)
+    {
+      int j;
+      for(j = 0;j<(rssi_results[i][0]+126)>>2;j++)
+      {
+        hashstring[j] = '#';
+      }
+      hashstring[j] = '\0';
+      //DBGLN("freq: %d, RssiInst: %d %s", freq_scan[i], rssi_results[i], hashstring);
+      DBGLN("freq: %d, RssiInst: %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d", freq_scan[i], rssi_results[i][0], rssi_results[i][1], rssi_results[i][2], rssi_results[i][3], rssi_results[i][4], rssi_results[i][5], rssi_results[i][6], rssi_results[i][7], rssi_results[i][8], rssi_results[i][9], rssi_results[i][10], rssi_results[i][11], rssi_results[i][12], rssi_results[i][13], rssi_results[i][14], rssi_results[i][15], rssi_results[i][16], rssi_results[i][17], rssi_results[i][18], rssi_results[i][19]);
+    }
+    
+  }
+
+  return;
 
   if (connectionState > MODE_STATES)
   {

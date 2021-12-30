@@ -40,6 +40,7 @@ public:
     /////////////Packet Stats//////////
     int8_t LastPacketRSSI = 0;
     int8_t LastPacketSNR = 0;
+    int8_t InstRSSI = 0;
     volatile uint8_t NonceTX = 0;
     volatile uint8_t NonceRX = 0;
     static uint32_t TotalTime;
@@ -85,6 +86,7 @@ public:
     
     bool GetFrequencyErrorbool();
     uint8_t GetRxBufferAddr();
+    void GetRssiInst();
     void GetLastPacketStats();
 
 private:
