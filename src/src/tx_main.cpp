@@ -385,6 +385,8 @@ void ICACHE_RAM_ATTR HandlePrepareForTLM()
   // If next packet is going to be telemetry, start listening to have a large receive window (time-wise)
   if (ExpressLRS_currAirRate_Modparams->TLMinterval != TLM_RATIO_NO_TLM && modresult == 0)
   {
+    Radio.ClearIrqStatus(SX1280_IRQ_RADIO_ALL);
+    Radio.SetDioIrqParams(SX1280_IRQ_RX_DONE, SX1280_IRQ_RX_DONE, SX1280_IRQ_RADIO_NONE, SX1280_IRQ_RADIO_NONE);
     Radio.RXnb();
     TelemetryRcvPhase = ttrpInReceiveMode;
   }
@@ -398,11 +400,11 @@ int8_t ICACHE_RAM_ATTR PowerEnumToLBTLimit(PowerLevels_e txPower)
     // TODO: This threshold should be modified with a config for antenna gain
     switch(txPower)
     {
-    case PWR_10mW: return -78;
-    case PWR_25mW: return -82;
-    case PWR_50mW: return -84;
-    case PWR_100mW: return -88;
-    default: return -88;
+    case PWR_10mW: return -60;
+    case PWR_25mW: return -64;
+    case PWR_50mW: return -67;
+    case PWR_100mW: return -70;
+    default: return -70;
     }
 }
 
@@ -411,24 +413,14 @@ volatile uint32_t RxStartTimeCCA = 0;
 void ICACHE_RAM_ATTR BeginClearChannelAssessment()
 {
   // Listen Before Talk (LBT) aka clear channel assessment (CCA)
-  // Start RX early because it takes about 90us from RX enable to 
-  // valid instant RSSI values are returned.
   // Not interested in packets or interrupts while measuring RF energy on channel.
-
   Radio.SetDioIrqParams(SX1280_IRQ_RADIO_NONE, SX1280_IRQ_RADIO_NONE, SX1280_IRQ_RADIO_NONE, SX1280_IRQ_RADIO_NONE);
   Radio.RXnb();
-  RxStartTimeCCA = micros();
 }
 
 bool ICACHE_RAM_ATTR ChannelIsClear()
-{
-  while(micros() - RxStartTimeCCA < ExpressLRS_currAirRate_RFperfParams->InstantRssiValidDelayUs);
-  int8_t rssiResult = Radio.GetRssiInst();
-
-  Radio.SetTxIdleMode();
-  Radio.ClearIrqStatus(SX1280_IRQ_RADIO_ALL);
-  Radio.SetDioIrqParams(SX1280_IRQ_RADIO_ALL, SX1280_IRQ_TX_DONE | SX1280_IRQ_RX_DONE, SX1280_IRQ_RADIO_NONE, SX1280_IRQ_RADIO_NONE);
-  return rssiResult < PowerEnumToLBTLimit((PowerLevels_e)POWERMGNT::currPower());
+{ 
+  return Radio.GetRssiInst() < PowerEnumToLBTLimit((PowerLevels_e)POWERMGNT::currPower());
 }
 
 void ICACHE_RAM_ATTR SendRCdataToRF()
@@ -507,6 +499,8 @@ void ICACHE_RAM_ATTR SendRCdataToRF()
   if(ChannelIsClear())
   {
     LBTSuccessCalc.add();
+    Radio.ClearIrqStatus(SX1280_IRQ_RADIO_ALL);
+    Radio.SetDioIrqParams(SX1280_IRQ_TX_DONE, SX1280_IRQ_TX_DONE, SX1280_IRQ_RADIO_NONE, SX1280_IRQ_RADIO_NONE);
     Radio.TXnb();
   }
   else
@@ -543,12 +537,10 @@ void ICACHE_RAM_ATTR timerCallbackNormal()
   // TLM packet reception was the previous slot, transmit this slot (below)
   if (TelemetryRcvPhase == ttrpWindowInProgress)
   {
-    // Stop Receive mode if it is still active
-    Radio.SetTxIdleMode();
+    // Stop Receive mode and start LBT
+    BeginClearChannelAssessment();
     TelemetryRcvPhase = ttrpTransmitting;
   }
-
-  BeginClearChannelAssessment();
 
   // Do not send a stale channels packet to the RX if one has not been received from the handset
   // *Do* send data if a packet has never been received from handset and the timer is running
@@ -559,12 +551,6 @@ void ICACHE_RAM_ATTR timerCallbackNormal()
     busyTransmitting = true;
     SendRCdataToRF();
   }
-  else
-  {
-  // End clear channel assessment by checking status
-  ChannelIsClear();
-  }
-
 }
 
 /*
@@ -667,7 +653,7 @@ static void CheckConfigChangePending()
     // to be on the last slot of the FHSS the skip will prevent FHSS
     if (TelemetryRcvPhase == ttrpInReceiveMode)
     {
-      Radio.SetTxIdleMode();
+      BeginClearChannelAssessment();
       TelemetryRcvPhase = ttrpTransmitting;
     }
     ConfigChangeCommit();
@@ -678,7 +664,6 @@ void ICACHE_RAM_ATTR RXdoneISR()
 {
   // There isn't enough time to receive two packets during one telemetry slot
   // Stop receiving to prevent a second packet preamble from starting a second receive
-  Radio.SetTxIdleMode();
   ProcessTLMpacket();
   busyTransmitting = false;
 }
@@ -687,6 +672,12 @@ void ICACHE_RAM_ATTR TXdoneISR()
 {
   HandleFHSS();
   HandlePrepareForTLM();
+  if (TelemetryRcvPhase != ttrpInReceiveMode)
+  {
+    // Start RX for Listen Before Talk early because it takes about 100us
+    // from RX enable to valid instant RSSI values are returned.
+    BeginClearChannelAssessment();
+  }
   busyTransmitting = false;
 }
 
