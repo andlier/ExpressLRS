@@ -1049,9 +1049,29 @@ void loop()
 
   if ((now - last_step_time) > 300)
   {
-    DBGLN("sx1280 mode: %x, bw: %x, SF: %x, CR: %x, RssiInst: %d", Radio.currOpmode, Radio.currBW, Radio.currSF, Radio.currCR, Radio.InstRSSI);
-
+    static int8_t bw_mode = 3;
+    bw_mode++;
+    if(bw_mode > 3)
+    {
+      bw_mode = 0;
+    }
     last_step_time = now;
+
+    switch(bw_mode){
+      case 0:
+        Radio.currBW = SX1280_LORA_BW_0200;
+      break;
+      case 1:
+        Radio.currBW = SX1280_LORA_BW_0400;
+      break;
+      case 2:
+        Radio.currBW = SX1280_LORA_BW_0800;
+      break;
+      case 3:
+        Radio.currBW = SX1280_LORA_BW_1600;
+      break;
+    }
+    Radio.ConfigLoRaModParams(Radio.currBW, Radio.currSF, Radio.currCR);
     int8_t table_len = (int8_t) FHSSgetChannelCount()/4;
     int8_t rssi_results[table_len][20];
     uint32_t freq_scan[table_len];
@@ -1069,20 +1089,35 @@ void loop()
       freq_scan[random_freq_index[i]] = FREQ_REG_TO_HZ_VAL(Radio.currFreq);
       
     }
-    DBGLN("\f");
+    //DBGLN("\f");
     
     for(i = 0;i<table_len;i++)
     {
       int j;
-      for(j = 0;j<(rssi_results[i][0]+126)>>2;j++)
+      for(j = 0;j<(rssi_results[i][19]+126)>>2;j++)
       {
         hashstring[j] = '#';
       }
       hashstring[j] = '\0';
-      //DBGLN("freq: %d, RssiInst: %d %s", freq_scan[i], rssi_results[i], hashstring);
-      DBGLN("freq: %d, RssiInst: %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d", freq_scan[i], rssi_results[i][0], rssi_results[i][1], rssi_results[i][2], rssi_results[i][3], rssi_results[i][4], rssi_results[i][5], rssi_results[i][6], rssi_results[i][7], rssi_results[i][8], rssi_results[i][9], rssi_results[i][10], rssi_results[i][11], rssi_results[i][12], rssi_results[i][13], rssi_results[i][14], rssi_results[i][15], rssi_results[i][16], rssi_results[i][17], rssi_results[i][18], rssi_results[i][19]);
+      DBGLN("freq: %d, RssiInst: %d %s", freq_scan[i], rssi_results[i][19], hashstring);
+      //DBGLN("freq: %d, RssiInst: %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d", freq_scan[i], rssi_results[i][0], rssi_results[i][1], rssi_results[i][2], rssi_results[i][3], rssi_results[i][4], rssi_results[i][5], rssi_results[i][6], rssi_results[i][7], rssi_results[i][8], rssi_results[i][9], rssi_results[i][10], rssi_results[i][11], rssi_results[i][12], rssi_results[i][13], rssi_results[i][14], rssi_results[i][15], rssi_results[i][16], rssi_results[i][17], rssi_results[i][18], rssi_results[i][19]);
     }
     
+    switch(bw_mode){
+      case 0:
+        DBGLN("BW_0200");
+      break;
+      case 1:
+        DBGLN("BW_0400");
+      break;
+      case 2:
+        DBGLN("BW_0800");
+      break;
+      case 3:
+        DBGLN("BW_1600");
+      break;
+    }
+    DBGLN("sx1280 mode: %x, bw: %x, SF: %x, CR: %x, RssiInst: %d\n\n\n", Radio.currOpmode, Radio.currBW, Radio.currSF, Radio.currCR, Radio.InstRSSI);
   }
 
   return;
