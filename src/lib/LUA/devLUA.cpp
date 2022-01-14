@@ -70,16 +70,14 @@ static struct luaItem_selection luaFanThreshold = {
 };
 #endif
 
-#if defined(Regulatory_Domain_EU_CE_2400)
-static struct luaItem_string luaCELimit = {
-    {"10mW CE LIMIT", CRSF_INFO},
-    emptySpace
-};
-#endif
-
-#if defined(Regulatory_Domain_EU_CE_LBT_2400)
+#if defined(Regulatory_Domain_EU_CE_2400) && defined(LBT_ACTIVE)
 static struct luaItem_string luaCELimit = {
     {"100mW CE LBT LIMIT", CRSF_INFO},
+    emptySpace
+};
+#elif defined(Regulatory_Domain_EU_CE_2400)
+static struct luaItem_string luaCELimit = {
+    {"10mW CE LIMIT", CRSF_INFO},
     emptySpace
 };
 #endif
@@ -321,7 +319,7 @@ static void registerLuaParameters()
       POWERMGNT::setFanEnableTheshold((PowerLevels_e)arg);
   }, luaPowerFolder.common.id);
 #endif
-#if defined(Regulatory_Domain_EU_CE_2400) || defined(Regulatory_Domain_EU_CE_LBT_2400)
+#if defined(Regulatory_Domain_EU_CE_2400)
   registerLUAParameter(&luaCELimit, NULL, luaPowerFolder.common.id);
 #endif
 
