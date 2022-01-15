@@ -576,6 +576,9 @@ static void ChangeRadioParams()
   // Dynamic Power starts at MinPower and will boost if switch is set or IsArmed and disconnected
   POWERMGNT.setPower(config.GetDynamicPower() ? MinPower : (PowerLevels_e)config.GetPower());
   // TLM interval is set on the next SYNC packet
+#if defined(Regulatory_Domain_EU_CE_2400)
+  LBTEnabled = config.GetPower() > PWR_10mW;
+#endif
 }
 
 void ICACHE_RAM_ATTR ModelUpdateReq()
@@ -658,13 +661,13 @@ void ICACHE_RAM_ATTR RXdoneISR()
   // Stop receiving to prevent a second packet preamble from starting a second receive
 #if defined(Regulatory_Domain_EU_CE_2400)
   if (LBTEnabled) {
-    BeginClearChannelAssessment(); // Stop Receive mode and start LBT`
+    BeginClearChannelAssessment(); // Stop Receive mode and start LBT
   } else {
     Radio.SetTxIdleMode(); // Stop Receive mode if it is still active
   }
 #else // non-CE
   Radio.SetTxIdleMode(); // Stop Receive mode if it is still active
-#endif`
+#endif
   ProcessTLMpacket();
   busyTransmitting = false;
 }
@@ -680,8 +683,6 @@ void ICACHE_RAM_ATTR TXdoneISR()
       // from RX enable to valid instant RSSI values are returned.
       BeginClearChannelAssessment();
     }
-  } else {
-    busyTransmitting = false;
   }
 #endif // non-CE
   busyTransmitting = false;
@@ -1114,10 +1115,6 @@ void loop()
   CheckReadyToSend();
   CheckConfigChangePending();
   DynamicPower_Update();
-
-#if defined(Regulatory_Domain_EU_CE_2400)
-  LBTEnabled = config.GetPower() > PWR_10mW;
-#endif
 
   if (Serial.available())
   {
