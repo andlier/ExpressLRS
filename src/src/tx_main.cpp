@@ -385,8 +385,10 @@ void ICACHE_RAM_ATTR HandlePrepareForTLM()
   // If next packet is going to be telemetry, start listening to have a large receive window (time-wise)
   if (ExpressLRS_currAirRate_Modparams->TLMinterval != TLM_RATIO_NO_TLM && modresult == 0)
   {
-#if defined(LBT_ACTIVE)
-    PrepareRXafterClearChannelAssessment();
+#if defined(Regulatory_Domain_EU_CE_2400)
+    if (LBTEnabled) {
+      PrepareRXafterClearChannelAssessment();
+    }
 #endif
     Radio.RXnb();
     TelemetryRcvPhase = ttrpInReceiveMode;
@@ -463,23 +465,24 @@ void ICACHE_RAM_ATTR SendRCdataToRF()
   Radio.TXdataBuffer[0] = (Radio.TXdataBuffer[0] & 0b11) | ((crc >> 6) & 0b11111100);
   Radio.TXdataBuffer[7] = crc & 0xFF;
 
-#if defined(LBT_ACTIVE)
-  if(ChannelIsClear())
-  {
-    PrepareTXafterClearChannelAssessment();
+#if defined(Regulatory_Domain_EU_CE_2400)
+  if (LBTEnabled) {
+    if (ChannelIsClear()) {
+      PrepareTXafterClearChannelAssessment();
+      Radio.TXnb();
+    } else {
+      // Emulate that TX just happened, even if it didn't because CCA failed
+      // TODO: Check if it is safe to call this way too early, compared to having
+      // an actual transmission first. Alternative could be a timer callback set
+      // for tx on the air time.
+      // idea: maybe better to start telemetry RX in normal timer callback in the
+      // if (TelemetryRcvPhase == ttrpInReceiveMode) - clause?
+      Radio.TXdoneCallback();
+    }
+  } else {
     Radio.TXnb();
   }
-  else
-  {
-    // Emulate that TX just happened, even if it didn't because CCA failed
-    // TODO: Check if it is safe to call this way too early, compared to having 
-    // an actual transmission first. Alternative could be a timer callback set
-    // for tx on the air time.
-    // idea: maybe better to start telemetry RX in normal timer callback in the
-    // if (TelemetryRcvPhase == ttrpInReceiveMode) - clause?
-    Radio.TXdoneCallback();
-  }
-#else
+#else // non-CE
   Radio.TXnb();
 #endif
 }
@@ -510,9 +513,14 @@ void ICACHE_RAM_ATTR timerCallbackNormal()
   // TLM packet reception was the previous slot, transmit this slot (below)
   if (TelemetryRcvPhase == ttrpWindowInProgress)
   {
-#if defined(LBT_ACTIVE)
+
+#if defined(Regulatory_Domain_EU_CE_2400)
+  if (LBTEnabled) {
     BeginClearChannelAssessment(); // Stop Receive mode and start LBT
-#else
+  } else {
+    Radio.SetTxIdleMode(); // Stop Receive mode if it is still active
+  }
+#else // non-CE
     Radio.SetTxIdleMode(); // Stop Receive mode if it is still active
 #endif
     TelemetryRcvPhase = ttrpTransmitting;
@@ -629,9 +637,13 @@ static void CheckConfigChangePending()
     // to be on the last slot of the FHSS the skip will prevent FHSS
     if (TelemetryRcvPhase == ttrpInReceiveMode)
     {
-#if defined(LBT_ACTIVE)
-      BeginClearChannelAssessment();
-#else
+#if defined(Regulatory_Domain_EU_CE_2400)
+      if (LBTEnabled) {
+        BeginClearChannelAssessment();
+      } else {
+        Radio.SetTxIdleMode();
+      }
+#else // non-CE
       Radio.SetTxIdleMode();
 #endif
       TelemetryRcvPhase = ttrpTransmitting;
@@ -644,11 +656,15 @@ void ICACHE_RAM_ATTR RXdoneISR()
 {
   // There isn't enough time to receive two packets during one telemetry slot
   // Stop receiving to prevent a second packet preamble from starting a second receive
-#if defined(LBT_ACTIVE)
-    BeginClearChannelAssessment(); // Stop Receive mode and start LBT
-#else
+#if defined(Regulatory_Domain_EU_CE_2400)
+  if (LBTEnabled) {
+    BeginClearChannelAssessment(); // Stop Receive mode and start LBT`
+  } else {
     Radio.SetTxIdleMode(); // Stop Receive mode if it is still active
-#endif
+  }
+#else // non-CE
+  Radio.SetTxIdleMode(); // Stop Receive mode if it is still active
+#endif`
   ProcessTLMpacket();
   busyTransmitting = false;
 }
@@ -657,14 +673,17 @@ void ICACHE_RAM_ATTR TXdoneISR()
 {
   HandleFHSS();
   HandlePrepareForTLM();
-#if defined(LBT_ACTIVE)
-  if (TelemetryRcvPhase != ttrpInReceiveMode)
-  {
-    // Start RX for Listen Before Talk early because it takes about 100us
-    // from RX enable to valid instant RSSI values are returned.
-    BeginClearChannelAssessment();
+#if defined(Regulatory_Domain_EU_CE_2400)
+  if (LBTEnabled) {
+    if (TelemetryRcvPhase != ttrpInReceiveMode) {
+      // Start RX for Listen Before Talk early because it takes about 100us
+      // from RX enable to valid instant RSSI values are returned.
+      BeginClearChannelAssessment();
+    }
+  } else {
+    busyTransmitting = false;
   }
-#endif
+#endif // non-CE
   busyTransmitting = false;
 }
 
@@ -1048,8 +1067,10 @@ void setup()
     // Set the pkt rate, TLM ratio, and power from the stored eeprom values
     ChangeRadioParams();
 
-#if defined(LBT_ACTIVE)
-    BeginClearChannelAssessment();
+#if defined(Regulatory_Domain_EU_CE_2400)
+    if (LBTEnabled) {
+      BeginClearChannelAssessment();
+    }
 #endif
     hwTimer.init();
     //hwTimer.resume();  //uncomment to automatically start the RX timer and leave it running
@@ -1093,6 +1114,10 @@ void loop()
   CheckReadyToSend();
   CheckConfigChangePending();
   DynamicPower_Update();
+
+#if defined(Regulatory_Domain_EU_CE_2400)
+  LBTEnabled = config.GetPower() > PWR_10mW;
+#endif
 
   if (Serial.available())
   {
