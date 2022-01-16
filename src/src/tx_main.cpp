@@ -395,7 +395,8 @@ void ICACHE_RAM_ATTR HandlePrepareForTLM()
   if (ExpressLRS_currAirRate_Modparams->TLMinterval != TLM_RATIO_NO_TLM && modresult == 0)
   {
 #if defined(Regulatory_Domain_EU_CE_2400)
-    if (LBTEnabled) {
+    if (LBTEnabled)
+    {
       PrepareRXafterClearChannelAssessment();
     }
 #endif
@@ -475,11 +476,15 @@ void ICACHE_RAM_ATTR SendRCdataToRF()
   Radio.TXdataBuffer[7] = crc & 0xFF;
 
 #if defined(Regulatory_Domain_EU_CE_2400)
-  if (LBTEnabled) {
-    if (ChannelIsClear()) {
+  if (LBTEnabled)
+  {
+    if (ChannelIsClear())
+    {
       PrepareTXafterClearChannelAssessment();
       Radio.TXnb();
-    } else {
+    }
+    else
+    {
       // Emulate that TX just happened, even if it didn't because CCA failed
       // TODO: Check if it is safe to call this way too early, compared to having
       // an actual transmission first. Alternative could be a timer callback set
@@ -488,7 +493,9 @@ void ICACHE_RAM_ATTR SendRCdataToRF()
       // if (TelemetryRcvPhase == ttrpInReceiveMode) - clause?
       Radio.TXdoneCallback();
     }
-  } else {
+  }
+  else
+  {
     Radio.TXnb();
   }
 #else // non-CE
@@ -524,9 +531,12 @@ void ICACHE_RAM_ATTR timerCallbackNormal()
   {
 
 #if defined(Regulatory_Domain_EU_CE_2400)
-  if (LBTEnabled) {
+  if (LBTEnabled)
+  {
     BeginClearChannelAssessment(); // Stop Receive mode and start LBT
-  } else {
+  }
+  else
+  {
     Radio.SetTxIdleMode(); // Stop Receive mode if it is still active
   }
 #else // non-CE
@@ -591,7 +601,8 @@ static void ChangeRadioParams()
     // It is safe to switch on LBT from outside interrupts because both TXdone, RXdone and timerCallback
     // start with beginClearChannelAssessment, which is first entry point for LBT.
     LBTEnabled = true;
-  } else if(LBTEnabled)
+  }
+  else if(LBTEnabled)
   {
     // It is NOT safe to switch off LBT from outside LBT routines because LBT fiddles with
     // interrupt enable flags. Instead we schedule LBT to be disabled and let LBT routines handle it safely.
@@ -660,9 +671,12 @@ static void CheckConfigChangePending()
     if (TelemetryRcvPhase == ttrpInReceiveMode)
     {
 #if defined(Regulatory_Domain_EU_CE_2400)
-      if (LBTEnabled) {
+      if (LBTEnabled)
+      {
         BeginClearChannelAssessment();
-      } else {
+      }
+      else
+      {
         Radio.SetTxIdleMode();
       }
 #else // non-CE
@@ -679,9 +693,12 @@ void ICACHE_RAM_ATTR RXdoneISR()
   // There isn't enough time to receive two packets during one telemetry slot
   // Stop receiving to prevent a second packet preamble from starting a second receive
 #if defined(Regulatory_Domain_EU_CE_2400)
-  if (LBTEnabled) {
+  if (LBTEnabled)
+  {
     BeginClearChannelAssessment(); // Stop Receive mode and start LBT
-  } else {
+  }
+  else
+  {
     Radio.SetTxIdleMode(); // Stop Receive mode if it is still active
   }
 #else // non-CE
@@ -696,8 +713,10 @@ void ICACHE_RAM_ATTR TXdoneISR()
   HandleFHSS();
   HandlePrepareForTLM();
 #if defined(Regulatory_Domain_EU_CE_2400)
-  if (LBTEnabled) {
-    if (TelemetryRcvPhase != ttrpInReceiveMode) {
+  if (LBTEnabled)
+  {
+    if (TelemetryRcvPhase != ttrpInReceiveMode)
+    {
       // Start RX for Listen Before Talk early because it takes about 100us
       // from RX enable to valid instant RSSI values are returned.
       BeginClearChannelAssessment();
@@ -1087,7 +1106,8 @@ void setup()
     ChangeRadioParams();
 
 #if defined(Regulatory_Domain_EU_CE_2400)
-    if (LBTEnabled) {
+    if (LBTEnabled)
+    {
       BeginClearChannelAssessment();
     }
 #endif
