@@ -7,6 +7,7 @@
 SX127xDriver Radio;
 #elif defined(Regulatory_Domain_ISM_2400)
 #include "SX1280Driver.h"
+#include "LBT.h"
 SX1280Driver Radio;
 #else
 #error "Radio configuration is not valid!"
@@ -298,6 +299,10 @@ bool ICACHE_RAM_ATTR HandleSendTelemetryResponse()
         return false; // don't bother sending tlm if disconnected or TLM is off
     }
 
+#if defined(Regulatory_Domain_EU_CE_2400)
+    BeginClearChannelAssessment();
+#endif
+
     alreadyTLMresp = true;
     Radio.TXdataBuffer[0] = TLM_PACKET;
 
@@ -342,7 +347,24 @@ bool ICACHE_RAM_ATTR HandleSendTelemetryResponse()
     Radio.TXdataBuffer[0] |= (crc >> 6) & 0b11111100;
     Radio.TXdataBuffer[7] = crc & 0xFF;
 
+#if defined(Regulatory_Domain_EU_CE_2400)
+    if(ChannelIsClear())
+    {
+        Radio.TXnb();
+    }
+    else
+    {
+        // Emulate that TX just happened, even if it didn't because CCA failed
+        // TODO: Check if it is safe to call this way too early, compared to having 
+        // an actual transmission first. Alternative would be a timer callback set
+        // for tx on the air time.
+        // idea: maybe better to start telemetry RX in normal timer callback in the
+        // if (TelemetryRcvPhase == ttrpInReceiveMode) - clause?
+        Radio.TXdoneCallback();
+    }
+#else // non-CE
     Radio.TXnb();
+#endif
     return true;
 }
 
@@ -991,6 +1013,10 @@ static void setupRadio()
 
     // Set transmit power to maximum
     POWERMGNT.setPower(MaxPower);
+
+#if defined(Regulatory_Domain_EU_CE_2400)
+    enableLBT(MaxPower > PWR_10mW);
+#endif
 
     Radio.RXdoneCallback = &RXdoneISR;
     Radio.TXdoneCallback = &TXdoneISR;
