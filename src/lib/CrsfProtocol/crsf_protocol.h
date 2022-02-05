@@ -86,6 +86,8 @@ typedef enum
     CRSF_FRAMETYPE_VARIO = 0x07,
     CRSF_FRAMETYPE_BATTERY_SENSOR = 0x08,
     CRSF_FRAMETYPE_LINK_STATISTICS = 0x14,
+    CRSF_FRAMETYPE_LINK_RX_STATISTICS = 0x1C,
+    CRSF_FRAMETYPE_LINK_RX_STATISTICS = 0x1D,
     CRSF_FRAMETYPE_OPENTX_SYNC = 0x10,
     CRSF_FRAMETYPE_RADIO_ID = 0x3A,
     CRSF_FRAMETYPE_RC_CHANNELS_PACKED = 0x16,
@@ -309,6 +311,40 @@ typedef struct crsfPayloadLinkstatistics_s
 } crsfLinkStatistics_t;
 
 typedef struct crsfPayloadLinkstatistics_s crsfLinkStatistics_t;
+
+/*
+ * 0x1C RX Link statistics
+ * Payload:
+ *
+ * uint8_t RX RSSI Percent ( % )
+ * uint8_t RX RF Power ( dBm )
+ */
+
+typedef struct crsfPayloadRXLinkstatistics_s
+{
+    uint8_t uplink_RSSI_Percent;
+    uint8_t downlink_RF_Power;
+} crsfRXLinkStatistics_t;
+
+typedef struct crsfPayloadRXLinkstatistics_s crsfRXLinkStatistics_t;
+
+/*
+ * 0x1D TX Link statistics
+ * Payload:
+ *
+ * uint8_t TX RSSI Percent ( % )
+ * uint8_t TX RF Power ( dBm )
+ * uint8_t TX FPS ( Hz )
+ */
+
+typedef struct crsfPayloadTXLinkstatistics_s
+{
+    uint8_t downlink_RSSI_Percent;
+    uint8_t uplink_RF_Power;
+    uint8_t uplink_FPS;
+} crsfTXLinkStatistics_t;
+
+typedef struct crsfPayloadTXLinkstatistics_s crsfTXLinkStatistics_t;
 
 // typedef struct crsfOpenTXsyncFrame_s
 // {
