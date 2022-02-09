@@ -638,10 +638,13 @@ static void CheckConfigChangePending()
   }
 }
 
+volatile int32_t freq_error;
+
 void ICACHE_RAM_ATTR RXdoneISR()
 {
   ProcessTLMpacket();
   busyTransmitting = false;
+  freq_error = Radio.GetFrequencyError();
 }
 
 void ICACHE_RAM_ATTR TXdoneISR()
@@ -1028,10 +1031,16 @@ void setup()
   devicesStart();
 }
 
+uint32_t last = 0;
+
 void loop()
 {
   uint32_t now = millis();
 
+  if(last + 300 < now){
+    last = now;
+    DBGLN("%d", freq_error);
+  }
   #if defined(USE_BLE_JOYSTICK)
   if (connectionState != bleJoystick && connectionState != noCrossfire) // Wait until the correct crsf baud has been found
   {
