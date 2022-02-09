@@ -79,10 +79,10 @@ bool SX1280Driver::Begin()
 
     SetMode(SX1280_MODE_STDBY_RC);                                                                                                //Put in STDBY_RC mode
     hal.WriteCommand(SX1280_RADIO_SET_PACKETTYPE, SX1280_PACKET_TYPE_LORA);                                                       //Set packet type to LoRa
-    ConfigModParamsLoRa(SX1280_LORA_BW_0800, SX1280_LORA_SF6, SX1280_LORA_CR_4_7);                                                //Configure Modulation Params
+    ConfigModParamsLoRa(SX1280_LORA_BW_0800, SX1280_LORA_SF6, SX1280_LORA_CR_4_6);                                                //Configure Modulation Params
     hal.WriteCommand(SX1280_RADIO_SET_AUTOFS, 0x01);                                                                              //Enable auto FS
     hal.WriteRegister(0x0891, (hal.ReadRegister(0x0891) | 0xC0));                                                                 //default is low power mode, switch to high sensitivity instead
-    SetPacketParamsLoRa(12, SX1280_LORA_PACKET_IMPLICIT, 8, SX1280_LORA_CRC_OFF, SX1280_LORA_IQ_NORMAL);                          //default params
+    SetPacketParamsLoRa(8, SX1280_LORA_PACKET_EXPLICIT, 8, SX1280_LORA_CRC_ON, SX1280_LORA_IQ_NORMAL);                          //default params
     SetFrequencyReg(currFreq);                                                                                                    //Set Freq
     SetFIFOaddr(0x00, 0x00);                                                                                                      //Config FIFO addr
     SetDioIrqParams(SX1280_IRQ_RADIO_ALL, SX1280_IRQ_TX_DONE | SX1280_IRQ_RX_DONE);                                               //set IRQ to both RXdone/TXdone on DIO1
@@ -115,8 +115,8 @@ void SX1280Driver::Config(uint8_t bw, uint8_t sf, uint8_t cr, uint32_t freq,
     {
         DBGLN("Config LoRa");
         ConfigModParamsLoRa(bw, sf, cr);
-        SetPacketParamsLoRa(PreambleLength, SX1280_LORA_PACKET_IMPLICIT,
-                            _PayloadLength, SX1280_LORA_CRC_OFF, InvertIQ);
+        SetPacketParamsLoRa(PreambleLength, SX1280_LORA_PACKET_EXPLICIT,
+                            _PayloadLength, SX1280_LORA_CRC_ON, InvertIQ);
     }
     SetFrequencyReg(freq);
     SetDioIrqParams(SX1280_IRQ_RADIO_ALL, irqs);
@@ -322,17 +322,15 @@ void ICACHE_RAM_ATTR SX1280Driver::SetFrequencyReg(uint32_t freq)
 int32_t ICACHE_RAM_ATTR SX1280Driver::GetFrequencyError()
 {
     WORD_ALIGNED_ATTR uint8_t efeRaw[3] = {0};
-    uint32_t efe = 0;
+    int32_t efe = 0;
     double efeHz = 0.0;
 
     efeRaw[0] = hal.ReadRegister(SX1280_REG_LR_ESTIMATED_FREQUENCY_ERROR_MSB);
     efeRaw[1] = hal.ReadRegister(SX1280_REG_LR_ESTIMATED_FREQUENCY_ERROR_MSB + 1);
     efeRaw[2] = hal.ReadRegister(SX1280_REG_LR_ESTIMATED_FREQUENCY_ERROR_MSB + 2);
-    efe = (efeRaw[0] << 16) | (efeRaw[1] << 8) | efeRaw[2];
+    efe = ((efeRaw[0] << 28) | (efeRaw[1] << 20) | (efeRaw[2] << 12)) >> 12;
 
-    efe &= SX1280_REG_LR_ESTIMATED_FREQUENCY_ERROR_MASK;
-
-    //efeHz = 1.55 * (double)complement2(efe, 20) / (1600.0 / (double)GetLoRaBandwidth() * 1000.0);
+    efeHz = 1.55 * efe / (1600.0 / 800.0);
     return efeHz;
 }
 
